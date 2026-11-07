@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Large archive files and runtime data/logs
+*.zip
+A). Tool Setup/airflow/airflow/logs/
+A). Tool Setup/minio/minio/data/
