@@ -1,0 +1,176 @@
+AIRFLOW QUICK SETUP GUIDELINE
+Windows PowerShell + Docker Desktop
+For Week 4 ETL Building Lab
+============================================================
+
+1. PURPOSE
+----------
+Run Apache Airflow locally using Docker Desktop from Windows PowerShell.
+This keeps Airflow dependencies separate from your existing Windows Python
+virtual environment (.venv).
+
+Recommended lab architecture:
+- Airflow: orchestrates and monitors ETL tasks.
+- PostgreSQL: internal Airflow metadata database (keep the default service).
+- Redis: Celery task broker (included in the official Compose setup).
+- MariaDB: optional ETL target database for your lab.
+- Jupyter/Python: develop and test ETL code in your existing .venv.
+
+IMPORTANT:
+Airflow is not officially supported for native Windows execution. Use the
+official Docker Compose setup with Docker Desktop, or use WSL2/Linux.
+
+2. PREREQUISITES
+----------------
+Open Windows PowerShell and check Docker:
+
+    docker --version
+    docker compose version
+
+Both commands should return version numbers. Ensure Docker Desktop is running.
+
+3. CREATE THE AIRFLOW PROJECT FOLDER
+------------------------------------
+Run in PowerShell:
+
+    cd C:\DataEngineering
+    New-Item -ItemType Directory -Force -Path airflow
+    cd airflow
+
+Create the directories used by the official Compose setup:
+
+    New-Item -ItemType Directory -Force -Path dags, logs, plugins, config
+
+4. DOWNLOAD THE OFFICIAL AIRFLOW COMPOSE FILE
+---------------------------------------------
+This guideline uses Apache Airflow 3.3.2 as a pinned example. Download the
+matching official Docker Compose file:
+
+    Invoke-WebRequest `
+      -Uri "https://airflow.apache.org/docs/apache-airflow/3.3.2/docker-compose.yaml" `
+      -OutFile "docker-compose.yaml"
+
+Create the .env file:
+
+    Set-Content -Path .env -Value "AIRFLOW_UID=50000"
+
+Note: The official Compose configuration includes PostgreSQL for Airflow
+metadata and Redis for Celery. Do not remove PostgreSQL or replace it with
+MariaDB for Airflow metadata; MariaDB is not a supported Airflow metadata
+backend. Use MariaDB as the database your ETL pipeline reads from or writes to.
+
+5. INITIALIZE AIRFLOW
+---------------------
+From the same folder, run:
+
+    docker compose config
+    docker compose up airflow-init
+
+Wait for the initialization container to finish successfully. On first run,
+Docker may need to download several images, so it can take a while.
+
+6. START AIRFLOW
+----------------
+Start the services in the background:
+
+    docker compose up -d
+
+Check service status:
+
+    docker compose ps
+
+Open the Airflow UI in your browser:
+
+    http://localhost:8080
+
+The default Compose file typically creates an account with:
+    Username: airflow
+    Password: airflow
+
+If login fails, inspect the configuration and initialization logs. The
+credentials may have been changed by environment variables.
+
+7. STOP AND RESTART
+-------------------
+Stop the services but keep containers and volumes:
+
+    docker compose stop
+
+Start them again:
+
+    docker compose start
+
+Stop and remove containers and network (persistent named volumes remain):
+
+    docker compose down
+
+WARNING: Avoid `docker compose down --volumes` unless you intentionally want
+to delete the Compose project's persistent database volumes and their data.
+
+8. ADD A DAG
+------------
+A DAG is an Airflow workflow definition. Place Python DAG files in:
+
+    C:\DataEngineering\airflow\dags
+
+Example file: dags\hello_etl.py
+
+    from datetime import datetime
+    from airflow.sdk import dag, task
+
+    @dag(
+        dag_id="hello_etl",
+        start_date=datetime(2025, 1, 1),
+        schedule=None,
+        catchup=False,
+        tags=["week4", "etl"],
+    )
+    def hello_etl():
+
+        @task
+        def extract():
+            print("Extract: read source data")
+
+        @task
+        def transform():
+            print("Transform: clean and prepare data")
+
+        @task
+        def load():
+            print("Load: write data to target database")
+
+        extract() >> transform() >> load()
+
+    hello_etl()
+
+Save the file, wait for Airflow to discover it, then refresh the UI. Find
+the DAG named hello_etl and trigger it manually.
+
+This is a simple demonstration DAG. It prints task messages; it does not
+yet connect to a real database.
+
+10. USEFUL TROUBLESHOOTING COMMANDS
+----------------------------------
+View recent logs:
+
+    docker compose logs --tail 100
+
+View logs for a particular service:
+
+    docker compose logs --tail 100 airflow-apiserver
+    docker compose logs --tail 100 airflow-scheduler
+    docker compose logs --tail 100 airflow-init
+
+Check services:
+
+    docker compose ps
+
+Validate Compose YAML:
+
+    docker compose config
+
+If port 8080 is already in use, find the conflicting application or change
+the host-side port mapping in the Compose file.
+
+If Docker reports insufficient resources, allocate at least 4 GB RAM and
+at least 2 CPUs to Docker Desktop; more memory is preferable for a lab.

@@ -1,0 +1,9 @@
+/** login to postgres database by superuser **/
+
+docker exec -it postgres-lab psql -U postgres -d postgres
+
+
+/** create airflow user and database **/
+
+CREATE USER airflow WITH PASSWORD 'airflow!123';
+CREATE DATABASE airflow OWNER airflow;
