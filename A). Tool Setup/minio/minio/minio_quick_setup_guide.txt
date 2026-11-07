@@ -1,0 +1,109 @@
+MinIO-Compatible Object Storage Quick Setup Guide
+
+Windows 11 + PowerShell + Docker Desktop
+
+Important note about image availability
+
+The previous quay.io/minio/minio:latest pull failed with HTTP 401
+Unauthorized. Do not keep retrying the same image and do not assume that
+a replacement image tag is available. Verify the image source and tag
+before using it. This guide uses the image reference configured in your
+current docker-compose.yaml; it does not guarantee that registry access
+will succeed.
+
+1. Project folder
+
+Open PowerShell:
+
+    Set-Location "C:\DataEngineering\minio"
+
+If you have not created the folder yet:
+
+    New-Item -ItemType Directory -Force -Path "C:\DataEngineering\minio\data"
+    Set-Location "C:\DataEngineering\minio"
+
+2. Configure docker-compose.yaml
+
+Example configuration for a MinIO-compatible image:
+
+    services:
+      minio:
+        image: REPLACE_WITH_VERIFIED_IMAGE_AND_TAG
+        container_name: minio-lab
+        restart: unless-stopped
+        command: server /data --console-address ":9001"
+        ports:
+          - "9000:9000"
+          - "9001:9001"
+        environment:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: "REPLACE_WITH_A_UNIQUE_LAB_PASSWORD"
+        volumes:
+          - ./data:/data
+
+Replace REPLACE_WITH_VERIFIED_IMAGE_AND_TAG with an image and tag that
+you have confirmed can be pulled from its registry. The earlier
+quay.io/minio/minio:latest reference returned HTTP 401, so do not assume
+it is anonymously accessible. If you use a fork or alternative image,
+review its provenance and documentation first.
+
+Do not use the sample username/password for production. Set a unique
+password for the lab and keep it private.
+
+3. Validate and start
+
+From C:\DataEngineering\minio, run:
+
+    docker compose config --quiet
+    docker compose pull
+    docker compose up -d
+    docker compose ps
+
+If docker compose pull fails, stop and read the exact error. A 401/403
+indicates registry access/authorization; a manifest-not-found error
+usually indicates an invalid image name or tag. Do not delete the data
+directory to troubleshoot a registry pull failure.
+
+4. Access the service
+
+If the container starts successfully: - Web console:
+http://localhost:9001 - S3-compatible API endpoint:
+http://localhost:9000
+
+Log in using the credentials set in the Compose file. The console may
+not be available if the selected image differs in its command or console
+support.
+
+5. Create a bucket
+
+In the web console: 1. Open the bucket/object-store section. 2. Create a
+bucket named data-lake. 3. Upload a small CSV file as a test.
+
+6. Useful commands
+
+Check container status:
+
+    docker compose ps
+
+View logs:
+
+    docker compose logs --tail 100 minio
+
+Stop and remove the container (the bind-mounted .\data directory
+remains):
+
+    docker compose down
+
+Start it again:
+
+    docker compose up -d
+
+7. Persistence and safety
+
+-   Local object data is stored under C:\DataEngineering\minio\data.
+-   Do not run docker compose down -v or delete the data directory
+    unless you intentionally want to remove stored data.
+-   Do not expose ports 9000/9001 to the internet for a classroom lab
+    without appropriate security controls.
+-   For production, use a supported storage platform, strong
+    credentials, TLS, and access controls.
